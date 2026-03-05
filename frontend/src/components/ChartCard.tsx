@@ -7,10 +7,19 @@ import type { MarketplacePackage } from '../types';
 interface ChartCardProps {
   chart: MarketplacePackage;
   index?: number;
+  onClick?: (chart: MarketplacePackage) => void;
 }
 
-export function ChartCard({ chart, index = 0 }: ChartCardProps) {
+export function ChartCard({ chart, index = 0, onClick }: ChartCardProps) {
   const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick(chart);
+    } else {
+      navigate(`/marketplace/${chart.repository.name}/${chart.name}`);
+    }
+  };
 
   return (
     <motion.div
@@ -26,7 +35,7 @@ export function ChartCard({ chart, index = 0 }: ChartCardProps) {
         }}
       >
         <CardActionArea
-          onClick={() => navigate(`/marketplace/${chart.repository.name}/${chart.name}`)}
+          onClick={handleClick}
           sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
         >
           <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>

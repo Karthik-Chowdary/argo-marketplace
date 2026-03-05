@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -28,7 +28,6 @@ import {
   RocketLaunch as DeployIcon,
   CheckCircle as SuccessIcon,
   ArrowBack as BackIcon,
-  ArrowForward as NextIcon,
   Storefront as MarketIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,6 +37,7 @@ import { useChartDetail, useMarketplaceSearch, useDeploy, useDeployStatus } from
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useDeployStore } from '../store';
 import { ChartCard, DeployStepper, EmptyState } from '../components';
+import type { MarketplacePackage } from '../types';
 
 const WIZARD_STEPS = ['Select Chart', 'Configure', 'Deploy'];
 
@@ -47,22 +47,26 @@ export function DeployPage() {
   const { enqueueSnackbar } = useSnackbar();
   const { subscribe } = useWebSocket();
 
-  const [activeStep, setActiveStep] = useState(repo && chartName ? 1 : 0);
+  // Determine initial step: if we arrived via /marketplace/:repo/:name, skip to step 1
+  const hasRouteParams = Boolean(repo && chartName);
+
+  const [activeStep, setActiveStep] = useState(hasRouteParams ? 1 : 0);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Chart selection
+  // Chart selection — initialized from route params if present
   const [selectedRepo, setSelectedRepo] = useState(repo || '');
   const [selectedChart, setSelectedChart] = useState(chartName || '');
 
   // Config
-  const { deployConfig, setDeployConfig, deployValues, setDeployValues, resetDeploy } = useDeployStore();
+  const { deployValues, setDeployValues } = useDeployStore();
   const [appName, setAppName] = useState('');
   const [targetNamespace, setTargetNamespace] = useState('');
   const [automated, setAutomated] = useState(true);
   const [prune, setPrune] = useState(true);
   const [selfHeal, setSelfHeal] = useState(true);
   const [selectedVersion, setSelectedVersion] = useState('');
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
 
   // Deploy state
   const [deployId, setDeployId] = useState<string | null>(null);
@@ -79,17 +83,18 @@ export function DeployPage() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // Set defaults from chart detail
+  // Set defaults from chart detail — only once per chart
   useEffect(() => {
-    if (chartDetail) {
-      if (!appName) setAppName(chartDetail.name.replace(/[^a-z0-9-]/g, '-'));
-      if (!targetNamespace) setTargetNamespace(chartDetail.name.replace(/[^a-z0-9-]/g, '-'));
-      if (!selectedVersion) setSelectedVersion(chartDetail.version);
-      if (chartDetail.default_values && !deployValues) {
+    if (chartDetail && !defaultsApplied) {
+      setAppName(chartDetail.name.replace(/[^a-z0-9-]/g, '-'));
+      setTargetNamespace(chartDetail.name.replace(/[^a-z0-9-]/g, '-'));
+      setSelectedVersion(chartDetail.version);
+      if (chartDetail.default_values) {
         setDeployValues(chartDetail.default_values);
       }
+      setDefaultsApplied(true);
     }
-  }, [chartDetail]);
+  }, [chartDetail, defaultsApplied, setDeployValues]);
 
   // Subscribe to deploy progress
   useEffect(() => {
@@ -98,11 +103,17 @@ export function DeployPage() {
     }
   }, [deployId, subscribe]);
 
-  const handleSelectChart = (repoName: string, name: string) => {
-    setSelectedRepo(repoName);
-    setSelectedChart(name);
+  // When user selects a chart from the search results in step 0
+  const handleSelectChart = useCallback((chart: MarketplacePackage) => {
+    setSelectedRepo(chart.repository.name);
+    setSelectedChart(chart.name);
+    setDefaultsApplied(false); // Reset so defaults get applied for new chart
+    setAppName('');
+    setTargetNamespace('');
+    setSelectedVersion('');
+    setDeployValues('');
     setActiveStep(1);
-  };
+  }, [setDeployValues]);
 
   const handleDeploy = async () => {
     if (!chartDetail) return;
@@ -134,9 +145,9 @@ export function DeployPage() {
 
   const canDeploy = useMemo(() => {
     if (!appName || !targetNamespace || !chartDetail) return false;
+    if (appName.length === 1) return /^[a-z0-9]$/.test(appName);
     const nameRegex = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
-    if (appName.length > 1 && !nameRegex.test(appName)) return false;
-    return true;
+    return nameRegex.test(appName);
   }, [appName, targetNamespace, chartDetail]);
 
   return (
@@ -152,9 +163,7 @@ export function DeployPage() {
           Marketplace
         </Link>
         {selectedChart && (
-          <Link underline="hover" color="text.secondary" sx={{ cursor: 'pointer' }}>
-            {selectedChart}
-          </Link>
+          <Typography color="text.secondary">{selectedChart}</Typography>
         )}
         <Typography color="text.primary">Deploy</Typography>
       </Breadcrumbs>
@@ -216,13 +225,8 @@ export function DeployPage() {
             ) : searchResults && searchResults.packages.length > 0 ? (
               <Grid container spacing={2.5}>
                 {searchResults.packages.map((chart, i) => (
-                  <Grid
-                    key={chart.package_id}
-                    size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
-                    onClick={() => handleSelectChart(chart.repository.name, chart.name)}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    <ChartCard chart={chart} index={i} />
+                  <Grid key={chart.package_id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                    <ChartCard chart={chart} index={i} onClick={handleSelectChart} />
                   </Grid>
                 ))}
               </Grid>
@@ -428,7 +432,7 @@ export function DeployPage() {
                 variant="outlined"
                 startIcon={<BackIcon />}
                 onClick={() => {
-                  if (repo && chartName) {
+                  if (hasRouteParams) {
                     navigate('/marketplace');
                   } else {
                     setActiveStep(0);

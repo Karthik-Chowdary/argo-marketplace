@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      target: production
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - CORS_ORIGIN=http://localhost:5173
+      - LOCAL_K8S_PLATFORM_PATH=/repo
+      - ARGOCD_NAMESPACE=argocd
+    volumes:
+      - ${HOME}/local-k8s-platform:/repo
+      - ${HOME}/.kube:/root/.kube:ro
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile
+      target: frontend-build
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    volumes:
+      - ./frontend/src:/app/frontend/src
+    depends_on:
+      - backend

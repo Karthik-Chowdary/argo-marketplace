@@ -32,7 +32,7 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
 // GET /api/apps/:name — Get application detail
 router.get('/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name } = req.params;
+    const name = String(req.params.name);
     const app = await k8sService.getApplication(name);
     res.json({ success: true, data: app });
   } catch (error) {
@@ -53,7 +53,7 @@ router.get('/:name', async (req: Request, res: Response, next: NextFunction) => 
 // POST /api/apps/:name/sync — Trigger sync
 router.post('/:name/sync', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name } = req.params;
+    const name = String(req.params.name);
     await k8sService.syncApplication(name);
     res.json({ success: true, message: `Sync triggered for ${name}` });
   } catch (error) {
@@ -65,7 +65,7 @@ router.post('/:name/sync', async (req: Request, res: Response, next: NextFunctio
 // DELETE /api/apps/:name — Delete application
 router.delete('/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name } = req.params;
+    const name = String(req.params.name);
     await k8sService.deleteApplication(name);
     res.json({ success: true, message: `Application ${name} deleted` });
   } catch (error) {

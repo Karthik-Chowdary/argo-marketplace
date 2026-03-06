@@ -71,7 +71,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
 // GET /api/deploy/:id/status — Get deployment status
 router.get('/:id/status', (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const deployment = gitDeployService.getDeployment(id);
 
   if (!deployment) {

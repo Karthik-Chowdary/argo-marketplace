@@ -61,8 +61,9 @@ router.get('/popular', async (_req: Request, res: Response, next: NextFunction) 
 // GET /api/marketplace/chart/:repo/:name — Chart details
 router.get('/chart/:repo/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { repo, name } = req.params;
-    const version = req.query.version as string | undefined;
+    const repo = String(req.params.repo);
+    const name = String(req.params.name);
+    const version = req.query.version ? String(req.query.version) : undefined;
 
     let detail;
     if (version) {
@@ -91,8 +92,9 @@ router.get('/chart/:repo/:name', async (req: Request, res: Response, next: NextF
 // GET /api/marketplace/chart/:repo/:name/values — Get default values only
 router.get('/chart/:repo/:name/values', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { repo, name } = req.params;
-    const version = req.query.version as string | undefined;
+    const repo = String(req.params.repo);
+    const name = String(req.params.name);
+    const version = req.query.version ? String(req.query.version) : undefined;
 
     const values = await artifactHubService.getDefaultValues(repo, name, version);
 
